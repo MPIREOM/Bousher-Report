@@ -404,21 +404,32 @@ export default function Dashboard() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setData(JSON.parse(raw));
-    } catch { /* ignore corrupt data */ }
-    setLoaded(true);
+    fetch("/api/data")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && d.dashboard) {
+          setData(d);
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
+        } else {
+          try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) setData(JSON.parse(raw)); } catch {}
+        }
+      })
+      .catch(() => {
+        try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) setData(JSON.parse(raw)); } catch {}
+      })
+      .finally(() => setLoaded(true));
   }, []);
 
   const handleData = (d: ParsedData) => {
     setData(d);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch { /* quota exceeded */ }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
+    fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).catch(() => {});
   };
 
   const handleReset = () => {
     setData(null);
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    fetch("/api/data", { method: "DELETE" }).catch(() => {});
   };
 
   if (!loaded) return null;

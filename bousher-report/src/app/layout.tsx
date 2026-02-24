@@ -7,6 +7,7 @@ const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"
 export const metadata: Metadata = {
   title: "MPIRE · Rent Collection Dashboard",
   description: "Bousher property rent collection and tenant management dashboard",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
