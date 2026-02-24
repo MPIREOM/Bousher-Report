@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart,
@@ -397,7 +397,30 @@ function DashView({ data, onReset }: { data: ParsedData; onReset: () => void }) 
 }
 
 // ─── ROOT ───
+const STORAGE_KEY = "mpire_dashboard_data";
+
 export default function Dashboard() {
   const [data, setData] = useState<ParsedData | null>(null);
-  return data ? <DashView data={data} onReset={() => setData(null)} /> : <UploadScreen onData={setData} />;
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setData(JSON.parse(raw));
+    } catch { /* ignore corrupt data */ }
+    setLoaded(true);
+  }, []);
+
+  const handleData = (d: ParsedData) => {
+    setData(d);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch { /* quota exceeded */ }
+  };
+
+  const handleReset = () => {
+    setData(null);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  };
+
+  if (!loaded) return null;
+  return data ? <DashView data={data} onReset={handleReset} /> : <UploadScreen onData={handleData} />;
 }
