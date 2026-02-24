@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
-import { readFile, writeFile, unlink } from "fs/promises";
-import { join } from "path";
+import { put, list, del } from "@vercel/blob";
 
-const DATA_PATH = join(process.cwd(), "data", "dashboard.json");
-
-async function ensureDir() {
-  const { mkdir } = await import("fs/promises");
-  await mkdir(join(process.cwd(), "data"), { recursive: true });
-}
+const BLOB_KEY = "mpire-dashboard.json";
 
 export async function GET() {
   try {
-    const raw = await readFile(DATA_PATH, "utf-8");
-    return NextResponse.json(JSON.parse(raw));
+    const { blobs } = await list({ prefix: BLOB_KEY, limit: 1 });
+    if (!blobs.length) return NextResponse.json(null);
+    const res = await fetch(blobs[0].url);
+    return NextResponse.json(await res.json());
   } catch {
     return NextResponse.json(null);
   }
@@ -21,8 +17,14 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    await ensureDir();
-    await writeFile(DATA_PATH, JSON.stringify(body));
+    // Remove old blob if it exists
+    const { blobs } = await list({ prefix: BLOB_KEY });
+    if (blobs.length) await del(blobs.map((b) => b.url));
+    // Store new data
+    await put(BLOB_KEY, JSON.stringify(body), {
+      access: "public",
+      addRandomSuffix: false,
+    });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
@@ -31,7 +33,8 @@ export async function POST(req: Request) {
 
 export async function DELETE() {
   try {
-    await unlink(DATA_PATH);
+    const { blobs } = await list({ prefix: BLOB_KEY });
+    if (blobs.length) await del(blobs.map((b) => b.url));
   } catch {}
   return NextResponse.json({ ok: true });
 }
