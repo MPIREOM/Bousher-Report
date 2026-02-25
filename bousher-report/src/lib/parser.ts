@@ -152,7 +152,7 @@ export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedData {
         const h: string[] = [];
         for (let j = 2; j < 2 + out.months.length; j++) {
           const v = String(r[j] ?? "");
-          h.push(v.indexOf("Paid") >= 0 ? "✓" : v.indexOf("Pending") >= 0 ? "✗" : "—");
+          h.push(v.indexOf("Partial") >= 0 ? "◐" : v.indexOf("Paid") >= 0 ? "✓" : v.indexOf("Pending") >= 0 ? "✗" : "—");
         }
         out.paymentHistory.push({
           unit: String(r[0]),
@@ -186,7 +186,7 @@ export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedData {
         due: Number(r[2]) || 0,
         paid: Number(r[4]) || 0,
         balance: Number(r[5]) || 0,
-        status: st.indexOf("Paid") >= 0 ? "Paid" : st.indexOf("Pending") >= 0 ? "Pending" : st === "N/A" ? "N/A" : st,
+        status: st.indexOf("Partial") >= 0 ? "Partial" : st.indexOf("Paid") >= 0 ? "Paid" : st.indexOf("Pending") >= 0 ? "Pending" : st === "N/A" ? "N/A" : st,
         paidTo: String(r[9] ?? ""),
         daysLate: Number(r[10]) || 0,
         prevBalance: Number(r[11]) || 0,
