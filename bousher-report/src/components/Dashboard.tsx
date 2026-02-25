@@ -175,6 +175,21 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
   const [ts, setTs] = useState("");
   const [sm, setSm] = useState("");
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [emailModal, setEmailModal] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [emailMsg, setEmailMsg] = useState("");
+
+  const sendTestEmail = async () => {
+    if (!emailTo || !emailTo.includes("@")) { setEmailMsg("Enter a valid email address"); setEmailStatus("error"); return; }
+    setEmailStatus("sending"); setEmailMsg("");
+    try {
+      const res = await fetch("/api/test-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: emailTo }) });
+      const json = await res.json();
+      if (!res.ok) { setEmailStatus("error"); setEmailMsg(json.error || "Failed to send"); return; }
+      setEmailStatus("sent"); setEmailMsg(`Test email sent to ${emailTo}`);
+    } catch (e: any) { setEmailStatus("error"); setEmailMsg(e.message || "Network error"); }
+  };
 
   const handleFile = (file: File | undefined) => {
     if (!file) return;
@@ -262,6 +277,7 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
               <div>{vac ? vac.totalUnits : tenants.length} Units</div>
             </div>
             <input id="update-file" type="file" accept=".xlsx,.xls" onChange={(e) => { handleFile(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} />
+            <button onClick={() => { setEmailModal(true); setEmailStatus("idle"); setEmailMsg(""); }} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.mpire}`, background: "rgba(99,102,241,0.1)", color: C.mpire, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>✉ Test Email</button>
             <button onClick={() => document.getElementById("update-file")?.click()} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.teal}`, background: "rgba(20,184,166,0.1)", color: C.teal, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>📤 Update Data</button>
           </div>
         </div>
@@ -279,6 +295,31 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
           </div>
         )}
       </header>
+
+      {/* Test Email Modal */}
+      {emailModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setEmailModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, maxWidth: 400, width: "100%" }}>
+            <h3 style={{ color: C.text, fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>Send Test Email</h3>
+            <p style={{ color: C.dim, fontSize: 11, margin: "0 0 16px" }}>Sends a sample report with mock data to verify your email setup.</p>
+            <input
+              value={emailTo} onChange={(e) => setEmailTo(e.target.value)}
+              placeholder="recipient@example.com"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+              onKeyDown={(e) => { if (e.key === "Enter") sendTestEmail(); }}
+            />
+            {emailMsg && (
+              <p style={{ margin: "10px 0 0", fontSize: 11, color: emailStatus === "sent" ? C.green : emailStatus === "error" ? C.red : C.muted }}>{emailMsg}</p>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              <button onClick={() => setEmailModal(false)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={sendTestEmail} disabled={emailStatus === "sending"} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: emailStatus === "sending" ? C.dim : C.mpire, color: "#fff", fontSize: 12, fontWeight: 600, cursor: emailStatus === "sending" ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+                {emailStatus === "sending" ? "Sending..." : emailStatus === "sent" ? "Send Again" : "Send Test"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: mob ? "12px 10px 32px" : "16px 24px 40px" }}>
 
