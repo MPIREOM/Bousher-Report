@@ -86,8 +86,8 @@ function Bdg({ t }: { t: string }) {
 }
 
 function HC({ v }: { v: string }) {
-  const bg = v === "✓" ? "rgba(34,197,94,0.14)" : v === "✗" ? "rgba(239,68,68,0.14)" : "rgba(100,116,139,0.06)";
-  const c = v === "✓" ? C.green : v === "✗" ? C.red : C.dim;
+  const bg = v === "✓" ? "rgba(34,197,94,0.14)" : v === "◐" ? "rgba(245,158,11,0.14)" : v === "✗" ? "rgba(239,68,68,0.14)" : "rgba(100,116,139,0.06)";
+  const c = v === "✓" ? C.green : v === "◐" ? C.amber : v === "✗" ? C.red : C.dim;
   return <td style={{ textAlign: "center", padding: "7px 4px", background: bg, color: c, fontWeight: 600, fontSize: 12, borderBottom: `1px solid ${C.border}` }}>{v}</td>;
 }
 
@@ -242,7 +242,7 @@ function DashView({ data, onReset }: { data: ParsedData; onReset: () => void }) 
               <div style={{ color: C.text, fontWeight: 600 }}>{cm}</div>
               <div>{vac ? vac.totalUnits : tenants.length} Units</div>
             </div>
-            <button onClick={onReset} style={{ padding: "8px 12px", minHeight: 36, borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>↻ New</button>
+            <button onClick={onReset} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.teal}`, background: "rgba(20,184,166,0.1)", color: C.teal, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>📤 Upload New</button>
           </div>
         </div>
         {/* Mobile tab bar — horizontally scrollable */}
@@ -320,7 +320,7 @@ function DashView({ data, onReset }: { data: ParsedData; onReset: () => void }) 
                         <td style={{padding:"8px 12px",color:C.text,whiteSpace:"nowrap"}}>{fmt(p.due)}</td>
                         <td style={{padding:"8px 12px",color:p.paid>0?C.green:C.dim,whiteSpace:"nowrap"}}>{p.paid>0?fmt(p.paid):"—"}</td>
                         <td style={{padding:"8px 12px",color:p.balance>0?C.red:C.dim,fontWeight:p.balance>0?600:400,whiteSpace:"nowrap"}}>{p.balance>0?fmt(p.balance):"0"}</td>
-                        <td style={{padding:"8px 12px",color:p.status==="Paid"?C.green:C.red,fontWeight:500,whiteSpace:"nowrap"}}>{p.status==="Paid"?"✓":"✗"} {p.status}</td>
+                        <td style={{padding:"8px 12px",color:p.status==="Paid"?C.green:p.status==="Partial"?C.amber:C.red,fontWeight:500,whiteSpace:"nowrap"}}>{p.status==="Paid"?"✓":p.status==="Partial"?"◐":"✗"} {p.status}</td>
                         <td style={{padding:"8px 12px",color:p.daysLate>0?C.amber:C.dim,whiteSpace:"nowrap"}}>{p.daysLate>0?p.daysLate+"d":"—"}</td>
                         <td style={{padding:"8px 12px"}}><Bdg t={p.paidTo}/></td>
                         <td style={{padding:"8px 12px",color:p.prevBalance>0?C.amber:C.dim,whiteSpace:"nowrap"}}>{p.prevBalance>0?fmt(p.prevBalance):"—"}</td>
@@ -385,7 +385,7 @@ function DashView({ data, onReset }: { data: ParsedData; onReset: () => void }) 
         {tab === "Payment History" && (
           <div>
             <Hdr icon="🗓️">Payment Heatmap</Hdr>
-            <p style={{color:C.dim,fontSize:10,margin:"-6px 0 10px"}}><span style={{color:C.green}}>✓ Paid</span>{" · "}<span style={{color:C.red}}>✗ Pending</span>{" · "}<span style={{color:C.dim}}>— N/A</span></p>
+            <p style={{color:C.dim,fontSize:10,margin:"-6px 0 10px"}}><span style={{color:C.green}}>✓ Paid</span>{" · "}<span style={{color:C.amber}}>◐ Partial</span>{" · "}<span style={{color:C.red}}>✗ Pending</span>{" · "}<span style={{color:C.dim}}>— N/A</span></p>
             {ph.length>0?(
               <div className="scroll-touch scroll-touch-x" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,overflow:"auto",maxHeight: mob ? "65vh" : 420}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth: mob ? 500 : "auto"}}>
