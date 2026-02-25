@@ -242,7 +242,7 @@ function DashView({ data, onReset }: { data: ParsedData; onReset: () => void }) 
               <div style={{ color: C.text, fontWeight: 600 }}>{cm}</div>
               <div>{vac ? vac.totalUnits : tenants.length} Units</div>
             </div>
-            <button onClick={onReset} style={{ padding: "8px 12px", minHeight: 36, borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>↻ New</button>
+            <button onClick={onReset} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.teal}`, background: "rgba(20,184,166,0.1)", color: C.teal, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>📤 Upload New</button>
           </div>
         </div>
         {/* Mobile tab bar — horizontally scrollable */}
