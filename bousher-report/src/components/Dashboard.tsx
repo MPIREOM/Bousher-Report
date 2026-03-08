@@ -672,7 +672,7 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
                     <thead><tr>
                       <Th>Description</Th>
                       <Th>Date</Th>
-                      <Th style={{ textAlign: "right" }}>Total Amount</Th>
+                      <Th align="right">Total Amount</Th>
                     </tr></thead>
                     <tbody>
                       {filteredExpenses.map((e, i) => (
