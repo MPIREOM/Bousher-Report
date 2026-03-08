@@ -97,13 +97,25 @@ function drawBarChart(
     const gx = x + 30 + i * groupW;
     const prevH = (d.prev / maxVal) * chartH;
     const curH = (d.cur / maxVal) * chartH;
+    const prevBarX = gx + gap;
+    const curBarX = gx + gap + barW + 1;
     if (d.prev > 0) {
       doc.setFillColor(...COLORS.muted);
-      doc.rect(gx + gap, chartY + chartH - prevH, barW, prevH, "F");
+      doc.rect(prevBarX, chartY + chartH - prevH, barW, prevH, "F");
+      // Value label on top of prev bar
+      doc.setFontSize(4.5);
+      doc.setTextColor(...COLORS.muted);
+      const prevValStr = d.prev >= 1000 ? `${(d.prev / 1000).toFixed(1)}K` : String(d.prev);
+      doc.text(prevValStr, prevBarX + barW / 2, chartY + chartH - prevH - 1.5, { align: "center" });
     }
     if (d.cur > 0) {
       doc.setFillColor(...COLORS.primary);
-      doc.rect(gx + gap + barW + 1, chartY + chartH - curH, barW, curH, "F");
+      doc.rect(curBarX, chartY + chartH - curH, barW, curH, "F");
+      // Value label on top of cur bar
+      doc.setFontSize(4.5);
+      doc.setTextColor(...COLORS.primary);
+      const curValStr = d.cur >= 1000 ? `${(d.cur / 1000).toFixed(1)}K` : String(d.cur);
+      doc.text(curValStr, curBarX + barW / 2, chartY + chartH - curH - 1.5, { align: "center" });
     }
     doc.setFontSize(5.5);
     doc.setTextColor(...COLORS.muted);
@@ -111,15 +123,42 @@ function drawBarChart(
   });
 
   const ly = y + h - 6;
-  const lx = x + w / 2 - 30;
+  const lx = x + w / 2 - 40;
   doc.setFillColor(...COLORS.muted);
   doc.rect(lx, ly - 2, 5, 3, "F");
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setTextColor(...COLORS.muted);
   doc.text(prevLabel, lx + 7, ly);
   doc.setFillColor(...COLORS.primary);
-  doc.rect(lx + 30, ly - 2, 5, 3, "F");
-  doc.text(curLabel, lx + 37, ly);
+  doc.rect(lx + 45, ly - 2, 5, 3, "F");
+  doc.setTextColor(...COLORS.primary);
+  doc.text(curLabel, lx + 52, ly);
+}
+
+// Detect if a string contains Arabic characters
+function hasArabic(str: string): boolean {
+  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
+}
+
+// Fetch and register an Arabic-supporting font with jsPDF
+async function registerArabicFont(doc: any): Promise<boolean> {
+  try {
+    const fontUrl = "https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ_sS6tlqHHFlhQ5l3sQWIHPqzCfyGyfuXmr.ttf";
+    const resp = await fetch(fontUrl);
+    if (!resp.ok) return false;
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    doc.addFileToVFS("NotoSansArabic-Regular.ttf", base64);
+    doc.addFont("NotoSansArabic-Regular.ttf", "NotoSansArabic", "normal");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function generateOwnerReport(
@@ -133,6 +172,7 @@ export async function generateOwnerReport(
   const autoTable = autoTableModule.default;
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const hasArabicFont = await registerArabicFont(doc);
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
   const db = data.dashboard!;
@@ -287,6 +327,10 @@ export async function generateOwnerReport(
       },
       didParseCell: (hookData: any) => {
         if (hookData.section === "body") {
+          // Use Arabic font for cells containing Arabic text
+          if (hasArabicFont && typeof hookData.cell.raw === "string" && hasArabic(hookData.cell.raw)) {
+            hookData.cell.styles.font = "NotoSansArabic";
+          }
           if (hookData.column.index === 5) {
             if (hookData.cell.raw === "Paid") hookData.cell.styles.textColor = COLORS.green;
             else if (hookData.cell.raw === "Pending") hookData.cell.styles.textColor = COLORS.red;
