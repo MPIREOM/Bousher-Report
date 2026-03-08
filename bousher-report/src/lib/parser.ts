@@ -1,5 +1,14 @@
 import * as XLSX from "xlsx";
 
+/** Robustly parse a numeric value that may be a formatted string with commas, spaces, etc. */
+function parseNum(v: any): number {
+  if (v == null) return 0;
+  if (typeof v === "number") return isNaN(v) ? 0 : v;
+  const s = String(v).replace(/[,\s]/g, "");
+  const n = Number(s);
+  return isNaN(n) ? 0 : n;
+}
+
 export interface DashboardData {
   months: string[];
   totalDue: number[];
@@ -230,12 +239,9 @@ export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedData {
       const desc = String(r[2] ?? "").trim();
       const cat = String(r[3] ?? "").trim();
       if (!desc && !cat) continue;
-      // Skip settlement rows
-      const catLower = cat.toLowerCase();
-      if (catLower.includes("pending amount to mpire") || catLower.includes("paid by owner to mpire")) continue;
-      const amt = Number(r[4]) || 0;
-      const pending = Number(r[5]) || 0;
-      const paidOwner = Number(r[6]) || 0;
+      const amt = parseNum(r[4]);
+      const pending = parseNum(r[5]);
+      const paidOwner = parseNum(r[6]);
       // Parse date
       let dateStr = "";
       if (r[1] != null) {
@@ -364,11 +370,9 @@ export function parseExpensesFile(buffer: ArrayBuffer | Uint8Array): Expense[] {
     const desc = String(r[2] ?? "").trim();
     const cat = String(r[3] ?? "").trim();
     if (!desc && !cat) continue;
-    const catLower = cat.toLowerCase();
-    if (catLower.includes("pending amount to mpire") || catLower.includes("paid by owner to mpire")) continue;
-    const amt = Number(r[4]) || 0;
-    const pending = Number(r[5]) || 0;
-    const paidOwner = Number(r[6]) || 0;
+    const amt = parseNum(r[4]);
+    const pending = parseNum(r[5]);
+    const paidOwner = parseNum(r[6]);
     let dateStr = "";
     if (r[1] != null) {
       const raw = r[1];
