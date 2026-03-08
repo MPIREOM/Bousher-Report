@@ -328,7 +328,7 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
     if (efYear !== "all") ex = ex.filter((e) => e.date && e.date.slice(0, 4) === efYear);
     if (efMonth !== "all") ex = ex.filter((e) => e.date && moNames[Number(e.date.slice(5, 7)) - 1] === efMonth);
     if (efDesc !== "all") ex = ex.filter((e) => e.description === efDesc);
-    return ex;
+    return ex.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   }, [expenses, efCat, efYear, efMonth, efDesc]);
 
   // KPIs on filtered data
@@ -342,24 +342,32 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
     return Object.entries(m).map(([name, value]) => ({ name, value: Math.round(value) })).sort((a, b) => b.value - a.value);
   }, [filteredExpenses]);
 
-  // Trendline data: grouped by month with 3 series
+  // Trendline data: current year vs previous year, Jan–Dec
   const expTrendline = useMemo(() => {
-    const moNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     const moShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const m: Record<string, { amount: number; pending: number; paidByOwner: number }> = {};
+    const now = new Date();
+    const curYear = String(now.getFullYear());
+    const prevYear = String(now.getFullYear() - 1);
+    const byYearMonth: Record<string, Record<string, number>> = {};
     filteredExpenses.forEach((e) => {
       if (!e.date) return;
-      const key = e.date.slice(0, 7);
-      if (!m[key]) m[key] = { amount: 0, pending: 0, paidByOwner: 0 };
-      m[key].amount += e.amount;
-      m[key].pending += e.pendingAmount;
-      m[key].paidByOwner += e.paidByOwner;
+      const y = e.date.slice(0, 4);
+      const mo = e.date.slice(5, 7);
+      if (y !== curYear && y !== prevYear) return;
+      if (!byYearMonth[y]) byYearMonth[y] = {};
+      byYearMonth[y][mo] = (byYearMonth[y][mo] || 0) + e.amount;
     });
-    return Object.entries(m).sort(([a],[b]) => a.localeCompare(b)).map(([k, v]) => {
-      const [y, mo] = k.split("-");
-      return { month: `${moShort[Number(mo)-1]}`, amount: Math.round(v.amount), pending: Math.round(v.pending), paidByOwner: Math.round(v.paidByOwner) };
+    return moShort.map((label, i) => {
+      const mo = String(i + 1).padStart(2, "0");
+      return {
+        month: label,
+        [prevYear]: Math.round(byYearMonth[prevYear]?.[mo] || 0),
+        [curYear]: Math.round(byYearMonth[curYear]?.[mo] || 0),
+      };
     });
   }, [filteredExpenses]);
+  const trendCurYear = String(new Date().getFullYear());
+  const trendPrevYear = String(new Date().getFullYear() - 1);
 
   const tabs = ["Overview", "Monthly Detail", "Tenants", "Payment History", "Expenses"];
 
@@ -614,9 +622,21 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* ROW 1: KPI Cards – full width, equal sizing */}
             <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 14 }}>
-              <KPI label="Total Expense Amount" value={fmt(expTotalAmount.toFixed(2))} color={C.text} />
-              <KPI label="Total Paid by Owner" value={fmt(expTotalPaidByOwner.toFixed(2))} color={C.owner} />
-              <KPI label={expTotalPending >= 0 ? "Total Pending to MPIRE" : "Total Pending to Owner"} value={fmt(Math.abs(expTotalPending).toFixed(2))} color={expTotalPending >= 0 ? C.red : C.green} />
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: C.text, borderRadius: "14px 0 0 14px" }} />
+                <p style={{ color: C.muted, fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Total Expense Amount</p>
+                <p style={{ color: C.text, fontSize: 26, fontWeight: 800, margin: "6px 0 0", letterSpacing: "-0.02em" }}>{fmt(expTotalAmount.toFixed(2))}</p>
+              </div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: C.owner, borderRadius: "14px 0 0 14px" }} />
+                <p style={{ color: C.muted, fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Total Paid by Owner</p>
+                <p style={{ color: C.owner, fontSize: 26, fontWeight: 800, margin: "6px 0 0", letterSpacing: "-0.02em" }}>{fmt(expTotalPaidByOwner.toFixed(2))}</p>
+              </div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: expTotalPending >= 0 ? C.red : C.green, borderRadius: "14px 0 0 14px" }} />
+                <p style={{ color: C.muted, fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>{expTotalPending >= 0 ? "Total Pending to MPIRE" : "Total Pending to Owner"}</p>
+                <p style={{ color: expTotalPending >= 0 ? C.red : C.green, fontSize: 26, fontWeight: 800, margin: "6px 0 0", letterSpacing: "-0.02em" }}>{fmt(Math.abs(expTotalPending).toFixed(2))}</p>
+              </div>
             </div>
 
             {/* ROW 2: Filters */}
@@ -653,20 +673,20 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
             </div>
 
             {/* ROW 3: Trendline – full width for prominence */}
-            <CCard title="Expense Trend">
+            <CCard title="Expense Trend — Year over Year">
               <ResponsiveContainer width="100%" height={mob ? 220 : 280}>
-                <BarChart data={expTrendline} barGap={1} barCategoryGap="15%">
+                <BarChart data={expTrendline} barGap={2} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                   <XAxis dataKey="month" tick={{ fill: C.dim, fontSize: mob ? 7 : 9 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: C.dim, fontSize: 9 }} axisLine={false} tickLine={false} width={mob ? 35 : 50} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} />
                   <Tooltip content={<Tip />} />
-                  <Bar dataKey="amount" name="Total Expense" fill="#8B6914" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="paidByOwner" name="Paid by Owner" fill={C.owner} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey={trendPrevYear} name={trendPrevYear} fill={C.muted} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey={trendCurYear} name={trendCurYear} fill={C.teal} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 6 }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "#8B6914", display: "inline-block" }} />Total Expense</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}><span style={{ width: 10, height: 10, borderRadius: 2, background: C.owner, display: "inline-block" }} />Paid by Owner</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}><span style={{ width: 10, height: 10, borderRadius: 2, background: C.muted, display: "inline-block" }} />{trendPrevYear}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}><span style={{ width: 10, height: 10, borderRadius: 2, background: C.teal, display: "inline-block" }} />{trendCurYear}</span>
               </div>
             </CCard>
 
@@ -688,26 +708,49 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
                   })}
                 </div>
               </CCard>
-              <CCard title="Paid by Owner vs Pending">
-                <ResponsiveContainer width="100%" height={mob ? 180 : 220}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Paid by Owner", value: Math.abs(expTotalPaidByOwner) || 0.01 },
-                        { name: "Pending", value: Math.abs(expTotalPending) || 0.01 },
-                      ]}
-                      cx="50%" cy="50%" innerRadius={mob ? 40 : 55} outerRadius={mob ? 65 : 85} paddingAngle={3} dataKey="value" stroke="none"
-                    >
-                      <Cell fill={C.owner} />
-                      <Cell fill={expTotalPending >= 0 ? C.red : C.green} />
-                    </Pie>
-                    <Tooltip content={<Tip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 4 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: C.owner, display: "inline-block" }} />Paid by Owner</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: C.muted }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: expTotalPending >= 0 ? C.red : C.green, display: "inline-block" }} />Pending</span>
-                </div>
+              <CCard title="Financial Summary">
+                {(() => {
+                  const total = expTotalAmount || 1;
+                  const paidPct = (expTotalPaidByOwner / total) * 100;
+                  const pendingVal = Math.abs(expTotalPending);
+                  const pendingPct = (pendingVal / total) * 100;
+                  const pendingColor = expTotalPending >= 0 ? C.red : C.green;
+                  const pendingLabel = expTotalPending >= 0 ? "Pending to MPIRE" : "Pending to Owner";
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "8px 0" }}>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, color: C.muted }}>Paid by Owner</span>
+                          <span style={{ fontSize: 11, color: C.owner, fontWeight: 600 }}>{fmt(expTotalPaidByOwner.toFixed(2))}</span>
+                        </div>
+                        <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 5, overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(paidPct, 100)}%`, height: "100%", background: C.owner, borderRadius: 5 }} />
+                        </div>
+                        <p style={{ fontSize: 9, color: C.dim, marginTop: 3, margin: "3px 0 0" }}>{paidPct.toFixed(1)}% of total expenses</p>
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, color: C.muted }}>{pendingLabel}</span>
+                          <span style={{ fontSize: 11, color: pendingColor, fontWeight: 600 }}>{fmt(pendingVal.toFixed(2))}</span>
+                        </div>
+                        <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 5, overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(pendingPct, 100)}%`, height: "100%", background: pendingColor, borderRadius: 5 }} />
+                        </div>
+                        <p style={{ fontSize: 9, color: C.dim, marginTop: 3, margin: "3px 0 0" }}>{pendingPct.toFixed(1)}% of total expenses</p>
+                      </div>
+                      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 10, color: C.muted }}>Total Expenses</span>
+                          <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{fmt(expTotalAmount.toFixed(2))}</span>
+                        </div>
+                        <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 5, overflow: "hidden", marginTop: 6 }}>
+                          <div style={{ width: `${Math.min(paidPct, 100)}%`, height: "100%", background: C.owner, borderRadius: "5px 0 0 5px", display: "inline-block", float: "left" }} />
+                          <div style={{ width: `${Math.min(pendingPct, 100)}%`, height: "100%", background: pendingColor, borderRadius: "0 5px 5px 0", display: "inline-block", float: "left" }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CCard>
             </div>
 
