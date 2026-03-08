@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart,
 } from "recharts";
-import { parseWorkbook, ParsedData } from "@/lib/parser";
+import { parseWorkbook, parseExpensesFile, ParsedData } from "@/lib/parser";
 
 const C = {
   bg: "#0B0F1A", card: "#111827", border: "#1e293b",
@@ -222,6 +222,24 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
     r.readAsArrayBuffer(file);
   };
 
+  const handleExpensesFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.name.match(/\.xlsx?$/i)) { setUploadErr("Please upload an .xlsx file"); return; }
+    setUploadErr(null);
+    const r = new FileReader();
+    r.onload = (e) => {
+      try {
+        const expenses = parseExpensesFile(new Uint8Array(e.target!.result as ArrayBuffer));
+        if (!expenses.length) { setUploadErr("No expense rows found in file"); return; }
+        onUpdate({ ...data, expenses });
+        setUploadErr(null);
+        setTab("Expenses");
+      } catch (x: any) { setUploadErr("Error: " + x.message); }
+    };
+    r.onerror = () => { setUploadErr("Read failed"); };
+    r.readAsArrayBuffer(file);
+  };
+
   const db = data.dashboard!;
   const tenants = data.tenants;
   const ph = data.paymentHistory;
@@ -309,7 +327,7 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
   const expBuilding = useMemo(() => expenses.filter((e) => e.category !== "Private expenses").reduce((s, e) => s + e.amount, 0), [expenses]);
   const expPrivate = useMemo(() => expenses.filter((e) => e.category === "Private expenses").reduce((s, e) => s + e.amount, 0), [expenses]);
 
-  const tabs = ["Overview", "Monthly Detail", "Tenants", "Payment History", ...(expenses.length > 0 ? ["Expenses"] : [])];
+  const tabs = ["Overview", "Monthly Detail", "Tenants", "Payment History", "Expenses"];
 
   return (
     <div className="min-h-screen-safe" style={{ background: C.bg, color: C.text }}>
@@ -335,7 +353,9 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
               <div>{vac ? vac.totalUnits : tenants.length} Units</div>
             </div>
             <input id="update-file" type="file" accept=".xlsx,.xls" onChange={(e) => { handleFile(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} />
+            <input id="expenses-file" type="file" accept=".xlsx,.xls" onChange={(e) => { handleExpensesFile(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} />
             <button onClick={() => { setEmailModal(true); setEmailStatus("idle"); setEmailMsg(""); }} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.mpire}`, background: "rgba(99,102,241,0.1)", color: C.mpire, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>✉ Test Email</button>
+            <button onClick={() => document.getElementById("expenses-file")?.click()} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.amber}`, background: "rgba(245,158,11,0.1)", color: C.amber, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>📥 Expenses</button>
             <button onClick={() => document.getElementById("update-file")?.click()} style={{ padding: "8px 14px", minHeight: 36, borderRadius: 8, border: `1px solid ${C.teal}`, background: "rgba(20,184,166,0.1)", color: C.teal, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>📤 Update Data</button>
           </div>
         </div>
@@ -548,6 +568,14 @@ function DashView({ data, onUpdate }: { data: ParsedData; onUpdate: (d: ParsedDa
           </div>
         )}
         {/* EXPENSES */}
+        {tab === "Expenses" && expenses.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
+            <h3 style={{ color: C.text, fontSize: 18, fontWeight: 700, margin: "0 0 8px" }}>No Expenses Data</h3>
+            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 24px", maxWidth: 400, marginLeft: "auto", marginRight: "auto" }}>Upload a separate Excel file with your expenses data. The file should have columns: Sr No, Date, Description, Category, Amount.</p>
+            <button onClick={() => document.getElementById("expenses-file")?.click()} style={{ padding: "12px 28px", borderRadius: 10, border: `1px solid ${C.amber}`, background: "rgba(245,158,11,0.1)", color: C.amber, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>📥 Upload Expenses File</button>
+          </div>
+        )}
         {tab === "Expenses" && expenses.length > 0 && (
           <div>
             <div className="grid-kpi">
