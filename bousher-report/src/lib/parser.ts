@@ -342,3 +342,52 @@ export function parseWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedData {
 
   return out;
 }
+
+export function parseExpensesFile(buffer: ArrayBuffer | Uint8Array): Expense[] {
+  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+  const expenses: Expense[] = [];
+  // Try first sheet, or find one with "expense" in name
+  const sheetName = wb.SheetNames.find((n) => /expense/i.test(n)) || wb.SheetNames[0];
+  if (!sheetName) return expenses;
+  const ws = wb.Sheets[sheetName];
+  const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
+  let hi = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i] && rows[i][0] != null && /sr\s*no|#|no/i.test(String(rows[i][0]))) { hi = i; break; }
+  }
+  if (hi < 0) hi = 0;
+  for (let i = hi + 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r[0] == null) continue;
+    const srNo = Number(r[0]);
+    if (isNaN(srNo) || srNo <= 0) continue;
+    const desc = String(r[2] ?? "").trim();
+    const cat = String(r[3] ?? "").trim();
+    if (!desc && !cat) continue;
+    const catLower = cat.toLowerCase();
+    if (catLower.includes("pending amount to mpire") || catLower.includes("paid by owner to mpire")) continue;
+    const amt = Number(r[4]) || 0;
+    const pending = Number(r[5]) || 0;
+    const paidOwner = Number(r[6]) || 0;
+    let dateStr = "";
+    if (r[1] != null) {
+      const raw = r[1];
+      if (raw instanceof Date) {
+        dateStr = raw.toISOString().split("T")[0];
+      } else {
+        const s = String(raw).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+          dateStr = s.slice(0, 10);
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s)) {
+          const parts = s.split("/");
+          const y = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+          dateStr = `${y}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
+        } else {
+          dateStr = s;
+        }
+      }
+    }
+    expenses.push({ srNo, date: dateStr, description: desc, category: cat, amount: amt, pendingAmount: pending, paidByOwner: paidOwner });
+  }
+  return expenses;
+}
